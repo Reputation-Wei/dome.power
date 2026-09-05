@@ -1,8 +1,8 @@
-# Dome Power
+# Omarchy Power with Framework Charge Limit Control
 
 An Omarchy shell bar widget for Framework laptops. It combines battery status, power-profile selection, system statistics, an adjustable charge limit, and a one-cycle **Boost** mode.
 
-Dome Power is derived from Omarchy's built-in `omarchy.power` widget.
+Framework ChargeLimit Power is derived from Omarchy's built-in `omarchy.power` widget.
 
 ## Features
 
