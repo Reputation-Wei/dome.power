@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "dome.power",
-  "name": "Framework Chargelimit Power",
+  "name": "Framework ChargeLimit Power",
   "version": "1.2.0",
   "author": "dome",
   "description": "Battery, charge limit, power profile, and system stats",
