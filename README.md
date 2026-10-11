@@ -14,6 +14,7 @@ Framework ChargeLimit Power is derived from Omarchy's built-in `omarchy.power` w
 - Boost mode that temporarily raises the Framework charge limit to 100%
 - Automatic restoration of the normal charge limit after UPower reports a full battery
 - Optional automatic hibernation at a configurable low-battery percentage
+- Battery temperature from the Framework EC's named battery sensor
 - CPU, memory, temperature, and uptime statistics
 
 ## Requirements
@@ -95,6 +96,24 @@ Then reload the shell if the widget was already running:
 ```sh
 omarchy restart shell
 ```
+
+## Battery temperature permission
+
+The panel displays **Battery temp** and refreshes it every five seconds while
+open, using `sudo -n /usr/bin/framework_tool --thermal`. Only the sensor named
+`Battery` is displayed. Missing sensors and read failures show `—` and an
+explanation rather than a stale temperature.
+
+To allow background reads, add this exact read-only command to a sudoers file
+with `sudo visudo -f /etc/sudoers.d/framework-battery-temperature`:
+
+```sudoers
+YOUR_USERNAME ALL=(root) NOPASSWD: /usr/bin/framework_tool --thermal
+```
+
+Replace `YOUR_USERNAME` with your login name, then verify with
+`sudo -n /usr/bin/framework_tool --thermal`. Do not grant unrestricted access
+to `framework_tool`; this rule permits only its temperature/fan status query.
 
 ## Configuration
 

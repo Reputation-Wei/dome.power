@@ -48,6 +48,14 @@ function parseChargeLimit(raw) {
   return Number(percentages[percentages.length - 1].replace(/\D/g, ""))
 }
 
+function parseBatteryTemperature(raw) {
+  // Match the named battery sensor, never a CPU/board sensor or an error value.
+  var match = String(raw || "").match(/^\s*Battery:\s*(-?\d+(?:\.\d+)?)\s*(?:°\s*)?C\s*$/im)
+  if (!match) return null
+  var value = Number(match[1])
+  return isFinite(value) && value >= -40 && value <= 100 ? value : null
+}
+
 function shouldRequestChargeLimit(currentLimit, desiredLimit, blockedTarget) {
   return currentLimit !== desiredLimit && blockedTarget !== desiredLimit
 }
@@ -141,6 +149,7 @@ if (typeof module !== "undefined") {
     parseKeyValue: parseKeyValue,
     parseProfiles: parseProfiles,
     parseChargeLimit: parseChargeLimit,
+    parseBatteryTemperature: parseBatteryTemperature,
     shouldRequestChargeLimit: shouldRequestChargeLimit,
     keepBoostActive: keepBoostActive,
     normalizeHibernateThreshold: normalizeHibernateThreshold,

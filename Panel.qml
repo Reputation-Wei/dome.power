@@ -14,6 +14,8 @@ Panel {
   // permits — needed for the togglePercentage method below.
   manageIpc: false
   property var batteryInfo: ({})
+  property var batteryTemperature: null
+  property string batteryTemperatureError: ""
   property var systemInfo: ({})
   property var profiles: []
   property string activeProfile: ""
@@ -232,6 +234,7 @@ Panel {
     if (!batteryPresent) return
 
     if (!batteryProc.running) batteryProc.running = true
+    if (!thermalProc.running) thermalProc.running = true
     if (!profilesProc.running) profilesProc.running = true
     if (!chargeReadProc.running && !chargeLimitProc.running) chargeReadProc.running = true
     if (!systemProc.running) systemProc.running = true
@@ -402,6 +405,20 @@ Panel {
     id: batteryProc
     command: ["omarchy-battery-status", "--shell"]
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateKeyValue(text, "battery") }
+  }
+
+  Process {
+    id: thermalProc
+    command: ["sudo", "-n", "/usr/bin/framework_tool", "--thermal"]
+    stdout: StdioCollector { id: thermalOutput; waitForEnd: true }
+    stderr: StdioCollector { id: thermalError; waitForEnd: true }
+    onExited: function(exitCode, exitStatus) {
+      root.batteryTemperature = exitCode === 0 ? Model.parseBatteryTemperature(thermalOutput.text) : null
+      root.batteryTemperatureError = root.batteryTemperature !== null ? ""
+        : (String(thermalError.text || "").indexOf("password is required") >= 0
+          ? "Allow passwordless framework_tool --thermal to read battery temperature."
+          : "Battery temperature is unavailable.")
+    }
   }
 
   Process {
@@ -675,6 +692,10 @@ Panel {
             spacing: Style.spacing.labelGap
             InfoPair { label: "Battery size"; value: root.batteryInfo.size || "" }
             InfoPair { label: "Charge cycles"; value: root.batteryInfo.cycles || "—" }
+            InfoPair {
+              label: "Battery temp"
+              value: root.batteryTemperature !== null ? root.batteryTemperature + " °C" : "—"
+            }
           }
 
           Column {
@@ -689,6 +710,18 @@ Panel {
               value: root.chargeThresholdActive ? "Holding" : (root.batteryFull ? "-" : (root.batteryInfo.rate || ""))
             }
           }
+        }
+
+        Text {
+          visible: root.batteryTemperatureError !== ""
+          width: parent.width
+          text: root.batteryTemperatureError
+          textFormat: Text.PlainText
+          color: root.bar.foreground
+          opacity: 0.6
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
         }
 
         // ---------- Framework charge limit ----------
