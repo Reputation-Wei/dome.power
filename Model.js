@@ -56,6 +56,18 @@ function keepBoostActive(requested, batteryFull) {
   return requested === true && batteryFull !== true
 }
 
+function normalizeHibernateThreshold(value) {
+  var threshold = Math.round(Number(value))
+  return isFinite(threshold) ? Math.max(5, Math.min(30, threshold)) : 10
+}
+
+function shouldHibernate(enabled, present, onBattery, fraction, threshold, attempted) {
+  return enabled === true && present === true && onBattery === true
+    && typeof fraction === "number" && isFinite(fraction)
+    && fraction >= 0 && fraction <= normalizeHibernateThreshold(threshold) / 100
+    && attempted !== true
+}
+
 function clampChargeLimit(value) {
   var limit = Math.round(Number(value))
   if (!isFinite(limit)) return 80
@@ -131,6 +143,8 @@ if (typeof module !== "undefined") {
     parseChargeLimit: parseChargeLimit,
     shouldRequestChargeLimit: shouldRequestChargeLimit,
     keepBoostActive: keepBoostActive,
+    normalizeHibernateThreshold: normalizeHibernateThreshold,
+    shouldHibernate: shouldHibernate,
     clampChargeLimit: clampChargeLimit,
     normalizeChargeLimitStep: normalizeChargeLimitStep,
     stepChargeLimit: stepChargeLimit,

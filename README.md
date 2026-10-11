@@ -13,6 +13,7 @@ Framework ChargeLimit Power is derived from Omarchy's built-in `omarchy.power` w
 - Configurable Framework charge limit in the panel
 - Boost mode that temporarily raises the Framework charge limit to 100%
 - Automatic restoration of the normal charge limit after UPower reports a full battery
+- Optional automatic hibernation at a configurable low-battery percentage
 - CPU, memory, temperature, and uptime statistics
 
 ## Requirements
@@ -112,6 +113,31 @@ The widget accepts these optional values in its `shell.json` bar entry:
 - `showPercentage`: show the battery percentage in the bar button. Default: `false`.
 
 Omarchy manages the temporary `chargeToFull` setting when Boost is toggled. It should not normally be edited by hand.
+
+### Low-battery hibernation
+
+The **LOW BATTERY** controls select a threshold from 5–30% (default: 10%) and
+toggle **Hibernate**. This feature is off by default. The equivalent widget
+settings are `"lowBatteryHibernate": true` and `"hibernateThreshold": 10`.
+
+When enabled, the widget checks UPower every 15 seconds, even with the panel
+closed, and requests hibernation at or below the threshold while on battery.
+This saves the session to disk; it is separate from the Framework charging
+ceiling and does not change EC settings. It requires working system
+hibernation (swap/resume configured) and logind permission without a password.
+`busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanHibernate`
+must return `s "yes"`. No additional passwordless Framework sudo rule is needed.
+
+Requests respect system sleep inhibitors. If hibernation is unavailable or
+fails, the panel displays an error; it does not silently substitute suspend
+or shutdown. After an attempt, the widget rearms when AC is connected or the
+battery rises more than two percentage points above the threshold, avoiding
+an immediate hibernation loop after resume. Plugin or shell restarts reset
+this guard, so restarting on low battery can request hibernation again.
+
+This protection operates only while Omarchy shell and this widget are running.
+It cannot monitor a powered-off or suspended machine. Keep system-level
+critical-battery protection enabled as a fallback.
 
 ## How Boost turns itself off
 

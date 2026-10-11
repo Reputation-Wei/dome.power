@@ -27,6 +27,7 @@ Panel {
   property int blockedChargeLimitTarget: -1
   property string cursorSection: "profiles"
   property int chargeControlIndex: 2
+  property int lowBatteryControlIndex: 2
   readonly property int minimumChargeLimit: 40
   readonly property int maximumChargeLimit: 100
   readonly property int defaultChargeLimit: Model.clampChargeLimit(setting("defaultChargeLimit", 80))
@@ -37,6 +38,39 @@ Panel {
   readonly property bool boostVisualActive: chargeToFull || (chargeLimitProc.running && pendingChargeToFull)
   property bool cursorActive: false
   readonly property bool showPercentage: setting("showPercentage", false) === true
+  readonly property bool lowBatteryHibernate: setting("lowBatteryHibernate", false) === true
+  readonly property int hibernateThreshold: Model.normalizeHibernateThreshold(setting("hibernateThreshold", 10))
+  property bool hibernateAttempted: false
+  property bool hibernateAvailable: false
+  property string hibernateError: ""
+
+  function checkLowBattery() {
+    var device = UPower.displayDevice
+    var fraction = device ? device.percentage : NaN
+    // Rearm only after plugging in or charging above the threshold + 2%.
+    // This avoids immediately hibernating again when resuming at low charge.
+    if (!UPower.onBattery || (isFinite(fraction) && fraction > (hibernateThreshold + 2) / 100))
+      hibernateAttempted = false
+    if (!Model.shouldHibernate(lowBatteryHibernate, batteryPresent, UPower.onBattery,
+        fraction, hibernateThreshold, hibernateAttempted)) return
+    if (!hibernateAvailable || hibernateProc.running) return
+    hibernateAttempted = true
+    hibernateError = ""
+    hibernateProc.running = true
+  }
+
+  function setHibernateThreshold(delta) {
+    root.settings = Object.assign({}, root.settings, {
+      hibernateThreshold: Model.normalizeHibernateThreshold(hibernateThreshold + delta)
+    })
+  }
+
+  function toggleLowBatteryHibernate() {
+    root.settings = Object.assign({}, root.settings, { lowBatteryHibernate: !lowBatteryHibernate })
+    hibernateAttempted = false
+    hibernateError = ""
+    hibernateCheckProc.running = true
+  }
   // With the percentage shown the button paints a text block wider than an
   // icon, so the open-panel mark takes the painted width instead of the
   // icon-sized fraction of the slot the fallback assumes.
@@ -65,15 +99,21 @@ Panel {
       return
     }
 
+    if (cursorSection === "lowBattery") {
+      if (dx !== 0) lowBatteryControlIndex = Math.max(0, Math.min(2, lowBatteryControlIndex + dx))
+      else if (dy < 0) cursorSection = "charge"
+      else if (dy > 0) cursorSection = "profiles"
+      return
+    }
     if (cursorSection === "charge") {
       if (dx !== 0) chargeControlIndex = Math.max(0, Math.min(2, chargeControlIndex + dx))
-      else if (dy > 0) cursorSection = "profiles"
+      else if (dy > 0) cursorSection = "lowBattery"
       return
     }
 
     if (dy < 0) {
-      cursorSection = "charge"
-      chargeControlIndex = 2
+      cursorSection = "lowBattery"
+      lowBatteryControlIndex = 2
       return
     }
 
@@ -83,7 +123,12 @@ Panel {
 
   function activateCursor() {
     if (!cursorActive) return
-    if (cursorSection === "charge") activateChargeControl()
+    if (cursorSection === "lowBattery") {
+      if (lowBatteryControlIndex === 0) setHibernateThreshold(-1)
+      else if (lowBatteryControlIndex === 1) setHibernateThreshold(1)
+      else if (!hibernateCheckProc.running && !hibernateProc.running) toggleLowBatteryHibernate()
+    }
+    else if (cursorSection === "charge") activateChargeControl()
     else activateSelectedProfile()
   }
 
@@ -314,6 +359,39 @@ Panel {
 
   Component.onCompleted: {
     if (batteryPresent && !chargeReadProc.running) chargeReadProc.running = true
+    hibernateCheckProc.running = true
+  }
+
+  Timer {
+    interval: 15000
+    running: true
+    repeat: true
+    onTriggered: root.checkLowBattery()
+  }
+
+  Process {
+    id: hibernateCheckProc
+    command: ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1",
+      "org.freedesktop.login1.Manager", "CanHibernate"]
+    stdout: StdioCollector { id: hibernateCheckOutput; waitForEnd: true }
+    onExited: function(exitCode, exitStatus) {
+      root.hibernateAvailable = exitCode === 0 && hibernateCheckOutput.text.trim() === 's "yes"'
+      if (!root.hibernateAvailable)
+        root.hibernateError = "Automatic hibernation needs configured hibernation and permission without a password."
+      else root.hibernateError = ""
+      Qt.callLater(root.checkLowBattery)
+    }
+  }
+
+  Process {
+    id: hibernateProc
+    // Respect logind inhibitors and do not prompt for authentication in the background.
+    command: ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1",
+      "org.freedesktop.login1.Manager", "Hibernate", "b", "false"]
+    onExited: function(exitCode, exitStatus) {
+      if (exitCode !== 0)
+        root.hibernateError = "Could not hibernate. Connect power and check hibernation permissions or inhibitors."
+    }
   }
 
   visible: batteryPresent
@@ -752,6 +830,66 @@ Panel {
             width: parent.width
             textFormat: Text.PlainText
             text: root.chargeLimitError
+            color: root.bar.foreground
+            opacity: 0.6
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WordWrap
+          }
+        }
+
+        PanelSeparator { foreground: root.bar.foreground }
+
+        Column {
+          width: parent.width
+          spacing: Style.space(10)
+          PanelSectionHeader {
+            text: "LOW BATTERY"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+          }
+          Row {
+            spacing: Style.space(10)
+            Button {
+              text: "−"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              bordered: true
+              enabled: root.hibernateThreshold > 5
+              hasCursor: root.cursorActive && root.cursorSection === "lowBattery" && root.lowBatteryControlIndex === 0
+              onClicked: root.setHibernateThreshold(-1)
+            }
+            Button {
+              text: root.hibernateThreshold + "%"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              enabled: false
+            }
+            Button {
+              text: "+"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              bordered: true
+              enabled: root.hibernateThreshold < 30
+              hasCursor: root.cursorActive && root.cursorSection === "lowBattery" && root.lowBatteryControlIndex === 1
+              onClicked: root.setHibernateThreshold(1)
+            }
+            Button {
+              text: "Hibernate"
+              foreground: root.bar.foreground
+              fontFamily: root.bar.fontFamily
+              bordered: true
+              active: root.lowBatteryHibernate
+              hasCursor: root.cursorActive && root.cursorSection === "lowBattery" && root.lowBatteryControlIndex === 2
+              enabled: !hibernateCheckProc.running && !hibernateProc.running
+              onClicked: root.toggleLowBatteryHibernate()
+            }
+          }
+          Text {
+            width: parent.width
+            text: root.hibernateError || (root.lowBatteryHibernate
+              ? "Hibernate at " + root.hibernateThreshold + "% while on battery."
+              : "Automatic low-battery hibernation is off.")
             color: root.bar.foreground
             opacity: 0.6
             font.family: root.bar.fontFamily
