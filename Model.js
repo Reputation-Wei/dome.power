@@ -50,7 +50,7 @@ function parseChargeLimit(raw) {
 
 function parseBatteryTemperature(raw) {
   // Match the named battery sensor, never a CPU/board sensor or an error value.
-  var match = String(raw || "").match(/^\s*Battery:\s*(-?\d+(?:\.\d+)?)\s*(?:°\s*)?C\s*$/im)
+  var match = String(raw || "").match(/^\s*(?:Battery|battery_temp(?:@[0-9a-f]+)?):\s*(-?\d+(?:\.\d+)?)\s*(?:°\s*)?C\s*$/im)
   if (!match) return null
   var value = Number(match[1])
   return isFinite(value) && value >= -40 && value <= 100 ? value : null

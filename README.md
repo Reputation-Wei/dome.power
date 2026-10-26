@@ -101,7 +101,7 @@ omarchy restart shell
 
 The panel displays **Battery temp** and refreshes it every five seconds while
 open, using `sudo -n /usr/bin/framework_tool --thermal`. Only the sensor named
-`Battery` is displayed. Missing sensors and read failures show `—` and an
+`Battery`, `battery_temp`, or `battery_temp@<hex address>` is displayed. Missing sensors and read failures show `—` and an
 explanation rather than a stale temperature.
 
 To allow background reads, add this exact read-only command to a sudoers file
