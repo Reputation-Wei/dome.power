@@ -48,12 +48,17 @@ Panel {
   property bool hibernateAvailable: false
   property string hibernateError: ""
 
-  function checkLowBattery() {
+  function checkLowBatteryPowerSaver() {
     var device = UPower.displayDevice
     var fraction = device ? device.percentage : NaN
     if (Model.shouldEnablePowerSaver(lowBatteryPowerSaver, batteryPresent, UPower.onBattery, fraction)) {
       if (!powerSaverProc.running) powerSaverProc.running = true
     } else powerSaverError = ""
+  }
+
+  function checkLowBattery() {
+    var device = UPower.displayDevice
+    var fraction = device ? device.percentage : NaN
     // Rearm only after plugging in or charging above the threshold + 2%.
     // This avoids immediately hibernating again when resuming at low charge.
     if (!UPower.onBattery || (isFinite(fraction) && fraction > (hibernateThreshold + 2) / 100))
@@ -377,10 +382,18 @@ Panel {
     onTriggered: root.checkLowBattery()
   }
 
+  Timer {
+    interval: 300000
+    running: root.lowBatteryPowerSaver
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: root.checkLowBatteryPowerSaver()
+  }
+
   Process {
     id: powerSaverProc
     // Recheck AC at execution time and leave Omarchy's saved battery profile unchanged.
-    command: ["bash", "-c", "[ \"$(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery)\" = 'b true' ] || exit 0; current=$(powerprofilesctl get) || exit; [ \"$current\" = power-saver ] || powerprofilesctl set power-saver"]
+    command: ["timeout", "--kill-after=2s", "10s", "bash", "-c", "[ \"$(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery)\" = 'b true' ] || exit 0; current=$(powerprofilesctl get) || exit; [ \"$current\" = power-saver ] || powerprofilesctl set power-saver"]
     onExited: function(exitCode, exitStatus) {
       root.powerSaverError = exitCode === 0 ? "" : "Could not enable Power Saver. Check power-profiles-daemon."
       if (!profilesProc.running) profilesProc.running = true
@@ -950,7 +963,7 @@ Panel {
         Text {
           visible: root.lowBatteryPowerSaver || root.powerSaverError !== ""
           width: parent.width
-          text: root.powerSaverError || "Auto Power Saver: below 20% while on battery."
+          text: root.powerSaverError || "Auto Power Saver: below 20% while on battery (checked every 5 minutes)."
           color: root.bar.foreground
           opacity: 0.6
           font.family: root.bar.fontFamily

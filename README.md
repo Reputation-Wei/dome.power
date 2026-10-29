@@ -137,7 +137,11 @@ Omarchy manages the temporary `chargeToFull` setting when Boost is toggled. It s
 
 Set `"lowBatteryPowerSaver": true` to automatically select `power-saver` when
 running on battery below 20% (strictly less than 20%). Off by default. Checks
-run every 15 seconds while the widget is loaded, even with the panel closed.
+run once when enabled/loaded, then every 5 minutes while the widget is loaded,
+even with the panel closed. The check is separate from the 15-second hibernation
+check. It reuses one process, skips overlapping runs, and limits each command to
+10 seconds (with forced termination after a further 2 seconds). No history or
+subprocess output is accumulated.
 The current profile is queried before switching; errors appear in the panel.
 This temporary change does not overwrite Omarchy's saved battery profile.
 Plugging in restores the AC profile through Omarchy's existing battery service.
