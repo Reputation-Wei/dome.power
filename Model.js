@@ -64,6 +64,12 @@ function keepBoostActive(requested, batteryFull) {
   return requested === true && batteryFull !== true
 }
 
+function shouldEnablePowerSaver(enabled, present, onBattery, fraction) {
+  return enabled === true && present === true && onBattery === true
+    && typeof fraction === "number" && isFinite(fraction)
+    && fraction >= 0 && fraction < 0.20
+}
+
 function normalizeHibernateThreshold(value) {
   var threshold = Math.round(Number(value))
   return isFinite(threshold) ? Math.max(5, Math.min(30, threshold)) : 10
@@ -152,6 +158,7 @@ if (typeof module !== "undefined") {
     parseBatteryTemperature: parseBatteryTemperature,
     shouldRequestChargeLimit: shouldRequestChargeLimit,
     keepBoostActive: keepBoostActive,
+    shouldEnablePowerSaver: shouldEnablePowerSaver,
     normalizeHibernateThreshold: normalizeHibernateThreshold,
     shouldHibernate: shouldHibernate,
     clampChargeLimit: clampChargeLimit,

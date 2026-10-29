@@ -42,6 +42,8 @@ Panel {
   readonly property bool showPercentage: setting("showPercentage", false) === true
   readonly property bool lowBatteryHibernate: setting("lowBatteryHibernate", false) === true
   readonly property int hibernateThreshold: Model.normalizeHibernateThreshold(setting("hibernateThreshold", 10))
+  readonly property bool lowBatteryPowerSaver: setting("lowBatteryPowerSaver", false) === true
+  property string powerSaverError: ""
   property bool hibernateAttempted: false
   property bool hibernateAvailable: false
   property string hibernateError: ""
@@ -49,6 +51,9 @@ Panel {
   function checkLowBattery() {
     var device = UPower.displayDevice
     var fraction = device ? device.percentage : NaN
+    if (Model.shouldEnablePowerSaver(lowBatteryPowerSaver, batteryPresent, UPower.onBattery, fraction)) {
+      if (!powerSaverProc.running) powerSaverProc.running = true
+    } else powerSaverError = ""
     // Rearm only after plugging in or charging above the threshold + 2%.
     // This avoids immediately hibernating again when resuming at low charge.
     if (!UPower.onBattery || (isFinite(fraction) && fraction > (hibernateThreshold + 2) / 100))
@@ -370,6 +375,16 @@ Panel {
     running: true
     repeat: true
     onTriggered: root.checkLowBattery()
+  }
+
+  Process {
+    id: powerSaverProc
+    // Recheck AC at execution time and leave Omarchy's saved battery profile unchanged.
+    command: ["bash", "-c", "[ \"$(busctl get-property org.freedesktop.UPower /org/freedesktop/UPower org.freedesktop.UPower OnBattery)\" = 'b true' ] || exit 0; current=$(powerprofilesctl get) || exit; [ \"$current\" = power-saver ] || powerprofilesctl set power-saver"]
+    onExited: function(exitCode, exitStatus) {
+      root.powerSaverError = exitCode === 0 ? "" : "Could not enable Power Saver. Check power-profiles-daemon."
+      if (!profilesProc.running) profilesProc.running = true
+    }
   }
 
   Process {
@@ -930,6 +945,17 @@ Panel {
             font.pixelSize: Style.font.caption
             wrapMode: Text.WordWrap
           }
+        }
+
+        Text {
+          visible: root.lowBatteryPowerSaver || root.powerSaverError !== ""
+          width: parent.width
+          text: root.powerSaverError || "Auto Power Saver: below 20% while on battery."
+          color: root.bar.foreground
+          opacity: 0.6
+          font.family: root.bar.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
         }
 
         // ---------- Power profile picker ----------

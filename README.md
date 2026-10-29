@@ -133,6 +133,18 @@ The widget accepts these optional values in its `shell.json` bar entry:
 
 Omarchy manages the temporary `chargeToFull` setting when Boost is toggled. It should not normally be edited by hand.
 
+### Low-battery Power Saver
+
+Set `"lowBatteryPowerSaver": true` to automatically select `power-saver` when
+running on battery below 20% (strictly less than 20%). Off by default. Checks
+run every 15 seconds while the widget is loaded, even with the panel closed.
+The current profile is queried before switching; errors appear in the panel.
+This temporary change does not overwrite Omarchy's saved battery profile.
+Plugging in restores the AC profile through Omarchy's existing battery service.
+The plugin does not restore a previous profile merely because charge rises
+above 20%; manual profile changes below 20% are overridden on the next check.
+Requires `power-profiles-daemon` with the `power-saver` profile available.
+
 ### Low-battery hibernation
 
 The **LOW BATTERY** controls select a threshold from 5–30% (default: 10%) and
