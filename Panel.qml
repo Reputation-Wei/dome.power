@@ -908,7 +908,8 @@ Panel {
               onClicked: root.setHibernateThreshold(1)
             }
             Button {
-              text: "Hibernate"
+              text: root.lowBatteryHibernate ? "Auto: ON" : "Auto: OFF"
+              tooltipText: "Toggle automatic low-battery hibernation"
               foreground: root.bar.foreground
               fontFamily: root.bar.fontFamily
               bordered: true
@@ -921,7 +922,7 @@ Panel {
           Text {
             width: parent.width
             text: root.hibernateError || (root.lowBatteryHibernate
-              ? "Hibernate at " + root.hibernateThreshold + "% while on battery."
+              ? "Automatic hibernation is on: hibernate at " + root.hibernateThreshold + "% while on battery. Preparing hibernation may take a minute or more; wait for the computer to power off."
               : "Automatic low-battery hibernation is off.")
             color: root.bar.foreground
             opacity: 0.6

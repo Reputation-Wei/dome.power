@@ -136,11 +136,13 @@ Omarchy manages the temporary `chargeToFull` setting when Boost is toggled. It s
 ### Low-battery hibernation
 
 The **LOW BATTERY** controls select a threshold from 5–30% (default: 10%) and
-toggle **Hibernate**. This feature is off by default. The equivalent widget
+toggle **Auto: ON / Auto: OFF**. The button controls automatic hibernation; it does not request immediate manual hibernation. This feature is off by default. The equivalent widget
 settings are `"lowBatteryHibernate": true` and `"hibernateThreshold": 10`.
 
 When enabled, the widget checks UPower every 15 seconds, even with the panel
 closed, and requests hibernation at or below the threshold while on battery.
+Preparing the memory image and writing it to disk may take a minute or more, during which the lock screen may appear unresponsive. Wait for the computer to power off.
+
 This saves the session to disk; it is separate from the Framework charging
 ceiling and does not change EC settings. It requires working system
 hibernation (swap/resume configured) and logind permission without a password.
